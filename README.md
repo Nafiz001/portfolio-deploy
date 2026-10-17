@@ -27,9 +27,10 @@ push to main ──► GitHub Actions ──► ghcr.io/nafiz001/<project> ─�
 - **[`server/install.sh`](server/install.sh)**: one-time setup on a fresh
   Ubuntu server with Docker: clones this repository, writes `server/.env`
   (the domain and a random secret), installs the timer and starts everything.
-- **[`oracle/retry-a1.ps1`](oracle/retry-a1.ps1)**: free Ampere capacity in a
-  busy region is often exhausted. This applies a saved Resource Manager stack
-  every few minutes until Oracle has room, and stops on any other error.
+- **[`oracle/retry_a1.py`](oracle/retry_a1.py)**: free Ampere capacity in a
+  busy region is often exhausted. This calls LaunchInstance every two minutes,
+  biggest free size first, backs off when rate-limited, and stops on any
+  other error or once an Ampere server exists.
 
 ## Running now
 
