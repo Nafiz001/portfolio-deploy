@@ -28,8 +28,8 @@ push to main ──► GitHub Actions ──► ghcr.io/nafiz001/<project> ─�
   Ubuntu server with Docker: clones this repository, writes `server/.env`
   (the domain and a random secret), installs the timer and starts everything.
 - **[`oracle/retry_a1.py`](oracle/retry_a1.py)**: free Ampere capacity in a
-  busy region is often exhausted. This calls LaunchInstance every two minutes,
-  biggest free size first, backs off when rate-limited, and stops on any
+  busy region is often exhausted. This calls LaunchInstance every three minutes,
+  alternating the full and half free size, backs off when rate-limited, and stops on any
   other error or once an Ampere server exists.
 
 ## Running now

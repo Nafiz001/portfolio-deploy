@@ -30,7 +30,7 @@ services:
       - ./home:/srv/home:ro
       - caddy-data:/data
       - caddy-config:/config
-    mem_limit: 64m
+    mem_limit: 96m
 
   ebru:
     <<: *defaults

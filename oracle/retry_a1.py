@@ -3,8 +3,9 @@
 Free Ampere capacity in busy regions is usually exhausted, and Oracle's answer
 is "try again later". This tries again later, politely, until it gets one:
 
-  * each round asks for 2 OCPU / 12 GB (the whole free allowance), then
-    1 OCPU / 6 GB, so it takes the biggest free size there is room for;
+  * rounds alternate between 2 OCPU / 12 GB (the whole free allowance) and
+    1 OCPU / 6 GB, one request per round, since Oracle rate-limits
+    LaunchInstance well below one call a minute;
   * "out of host capacity" waits about two minutes; a rate limit (429)
     backs off from 5 to 30 minutes; other server errors are retried;
   * any other error stops it, so it never loops on a real problem;
@@ -49,7 +50,7 @@ def main() -> int:
     ap.add_argument("--name", default="portfolio")
     ap.add_argument("--vcn", default="portfolio-vcn")
     ap.add_argument("--boot-gb", type=int, default=50)
-    ap.add_argument("--every", type=int, default=120, help="seconds between rounds")
+    ap.add_argument("--every", type=int, default=180, help="seconds between rounds")
     args = ap.parse_args()
 
     config = oci.config.from_file()
@@ -82,7 +83,7 @@ def main() -> int:
             return 0
 
         wait = args.every + random.randint(0, 30)
-        for ocpus, gb in SIZES:
+        for ocpus, gb in [SIZES[attempt % len(SIZES)]]:
             attempt += 1
             try:
                 inst = compute.launch_instance(oci.core.models.LaunchInstanceDetails(
