@@ -1,0 +1,97 @@
+# Every portfolio project on one server, behind one Caddy that terminates
+# HTTPS for <app>.$DOMAIN. Images come from ghcr.io/nafiz001, built for amd64
+# and arm64 by .github/workflows/image.yml, so this file runs unchanged on the
+# AMD micro server and on the Ampere one.
+#
+# Memory limits are sized for the 1 GB micro server (with 2 GB of swap behind
+# it). Only Caddy is reachable from outside, apart from gedis, which speaks the
+# Redis protocol rather than HTTP and is published directly.
+
+name: portfolio
+
+x-defaults: &defaults
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options: { max-size: 10m, max-file: "3" }
+
+services:
+  caddy:
+    <<: *defaults
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./home:/srv/home:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    mem_limit: 64m
+
+  ebru:
+    <<: *defaults
+    image: ghcr.io/nafiz001/ebru:latest
+    volumes:
+      - ebru-data:/data
+    mem_limit: 96m
+
+  kirie:
+    <<: *defaults
+    image: ghcr.io/nafiz001/kirie:latest
+    environment:
+      Kirie__Salt: ${KIRIE_SALT:?set KIRIE_SALT in .env}
+      # Workstation GC keeps one small heap instead of one per core.
+      DOTNET_gcServer: "0"
+    volumes:
+      - kirie-data:/data
+    mem_limit: 192m
+
+  lumen:
+    <<: *defaults
+    image: ghcr.io/nafiz001/lumen:latest
+    environment:
+      LUMEN_SEED: https://go.dev/blog/
+      LUMEN_MAX_PAGES: "400"
+    volumes:
+      - lumen-data:/data
+    mem_limit: 128m
+
+  gedis:
+    <<: *defaults
+    image: ghcr.io/nafiz001/gedis:latest
+    ports:
+      - "6380:6380"
+    # A public demo: capped memory that evicts instead of refusing writes, no
+    # persistence, a client cap, idle connections dropped, and no command that
+    # writes files, connects out, stops the server or streams its data away.
+    command:
+      - -maxmemory
+      - 32mb
+      - -maxmemory-policy
+      - allkeys-lru
+      - -save
+      - "off"
+      - -maxclients
+      - "100"
+      - -timeout
+      - 300s
+      - -disable-commands
+      - config,debug,replicaof,slaveof,shutdown,save,bgsave,bgrewriteaof,sync,psync,replconf
+    read_only: true
+    mem_limit: 96m
+
+  asterism-web:
+    <<: *defaults
+    image: ghcr.io/nafiz001/asterism-web:latest
+    mem_limit: 32m
+
+volumes:
+  caddy-data:
+  caddy-config:
+  ebru-data:
+  kirie-data:
+  lumen-data:

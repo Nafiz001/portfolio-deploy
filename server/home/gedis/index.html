@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Connect to gedis</title>
+<style>
+  :root { --ink: #16181d; --soft: #5b6170; --line: #dfe2e8; --link: #1d4ed8; --bg: #ffffff; --code: #f3f4f7; }
+  @media (prefers-color-scheme: dark) {
+    :root { --ink: #e9ebf0; --soft: #9aa1b0; --line: #2a2e37; --link: #8ab4ff; --bg: #111317; --code: #1b1e24; }
+  }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 44rem; margin: 0 auto; padding: 3.5rem 1rem 4rem; }
+  h1 { font-size: 2rem; line-height: 1.2; margin: 0 0 .5rem; }
+  p, li { color: var(--ink); }
+  .soft { color: var(--soft); }
+  pre { background: var(--code); border: 1px solid var(--line); border-radius: 8px; padding: .9rem 1rem; overflow-x: auto; font-size: .95rem; }
+  a { color: var(--link); text-underline-offset: 3px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Connect to gedis</h1>
+  <p>gedis is a Redis-compatible data store written from scratch in Go. It speaks the Redis protocol, not HTTP, so talk to it with the official <code>redis-cli</code> or any Redis client:</p>
+  <pre id="cmd">redis-cli -h gedis.example -p 6380</pre>
+  <pre>SET greeting "hello"
+GET greeting
+INCR visits
+ZADD scores 10 ada 7 grace
+ZRANGE scores 0 -1 WITHSCORES
+INFO server</pre>
+  <p class="soft">This is a shared public demo: anyone can read and change what is stored, memory is capped at 32 MB with least-recently-used keys evicted, nothing is saved to disk, and commands that write files or connect elsewhere are switched off.</p>
+  <p><a href="https://github.com/Nafiz001/gedis">Read the code on GitHub</a> · <a href="/" id="home">All projects</a></p>
+</main>
+<script>
+  const base = location.host.replace(/^gedis\./, '');
+  document.getElementById('cmd').textContent = 'redis-cli -h ' + location.hostname + ' -p 6380';
+  document.getElementById('home').href = location.protocol + '//' + base + '/';
+</script>
+</body>
+</html>

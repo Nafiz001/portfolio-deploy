@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Projects by Md. Nafiz Ahmed</title>
+<meta name="description" content="Live projects by Md. Nafiz Ahmed, each running on this server, with links to the code.">
+<style>
+  :root { --ink: #16181d; --soft: #5b6170; --line: #dfe2e8; --link: #1d4ed8; --bg: #ffffff; }
+  @media (prefers-color-scheme: dark) {
+    :root { --ink: #e9ebf0; --soft: #9aa1b0; --line: #2a2e37; --link: #8ab4ff; --bg: #111317; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 44rem; margin: 0 auto; padding: 3.5rem 1rem 4rem; }
+  h1 { font-size: 2rem; line-height: 1.2; margin: 0 0 .5rem; letter-spacing: -.01em; }
+  .lede { color: var(--soft); margin: 0 0 2.5rem; }
+  ul { list-style: none; padding: 0; margin: 0; }
+  li { padding: 1.1rem 0; border-top: 1px solid var(--line); }
+  li:last-child { border-bottom: 1px solid var(--line); }
+  .name { font-weight: 650; font-size: 1.1rem; }
+  a { color: var(--link); text-underline-offset: 3px; }
+  a:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+  .what { margin: .2rem 0 .3rem; }
+  .meta { color: var(--soft); font-size: .92rem; }
+  footer { margin-top: 2.5rem; color: var(--soft); font-size: .92rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Projects, running live</h1>
+  <p class="lede">Each one below is running on this server. Open it to try it, or read the code on GitHub.</p>
+  <ul>
+    <li>
+      <a class="name" href="https://ebru.{{host}}">ebru</a>
+      <p class="what">A shared marbling tray. Drop ink, comb it, and print the sheet to the gallery, together with whoever else is there.</p>
+      <p class="meta">Rust and axum, the same Rust in WebAssembly, Vue · <a href="https://github.com/Nafiz001/ebru">code</a></p>
+    </li>
+    <li>
+      <a class="name" href="https://kirie.{{host}}">kirie</a>
+      <p class="what">A pop-up paper book of the sky over 36 places, lit by the weather there right now.</p>
+      <p class="meta">ASP.NET Core and SignalR, SvelteKit, CSS 3D · <a href="https://github.com/Nafiz001/kirie">code</a></p>
+    </li>
+    <li>
+      <a class="name" href="https://asterism.{{host}}">asterism</a>
+      <p class="what">A stargazing app: the stars, planets and space stations above you, and whether tonight is worth going out. This is its web version; the phone app follows your phone's motion.</p>
+      <p class="meta">Expo and React Native, Skia, astronomy from Meeus · <a href="https://github.com/Nafiz001/asterism">code</a></p>
+    </li>
+    <li>
+      <a class="name" href="https://lumen.{{host}}">lumen</a>
+      <p class="what">A search engine written from scratch, here searching the Go blog it crawled.</p>
+      <p class="meta">Go standard library only, BM25 · <a href="https://github.com/Nafiz001/lumen">code</a></p>
+    </li>
+    <li>
+      <a class="name" href="https://gedis.{{host}}">gedis</a>
+      <p class="what">A Redis-compatible data store written from scratch. Connect to it with redis-cli.</p>
+      <p class="meta">Go, the RESP protocol · <a href="https://github.com/Nafiz001/gedis">code</a></p>
+    </li>
+  </ul>
+  <footer>By Md. Nafiz Ahmed · <a href="https://github.com/Nafiz001">github.com/Nafiz001</a> · Hosted on an Oracle Cloud Always Free server.</footer>
+</main>
+<script>
+  // The page is served under whatever DOMAIN the server uses; fill it in.
+  for (const a of document.querySelectorAll('a[href*="{{host}}"]')) {
+    a.href = a.getAttribute('href').replace('{{host}}', location.host);
+  }
+</script>
+</body>
+</html>

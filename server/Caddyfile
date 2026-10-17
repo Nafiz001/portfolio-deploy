@@ -1,0 +1,47 @@
+# One HTTPS site per project, all under $DOMAIN (set in .env), for example
+# DOMAIN=130-210-16-198.sslip.io gives https://ebru.130-210-16-198.sslip.io.
+# Caddy fetches and renews the certificates itself.
+
+(common) {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+}
+
+{$DOMAIN} {
+	import common
+	root * /srv/home
+	file_server
+}
+
+ebru.{$DOMAIN} {
+	import common
+	reverse_proxy ebru:8740
+}
+
+kirie.{$DOMAIN} {
+	import common
+	reverse_proxy kirie:8080
+}
+
+lumen.{$DOMAIN} {
+	import common
+	reverse_proxy lumen:8080
+}
+
+asterism.{$DOMAIN} {
+	import common
+	reverse_proxy asterism-web:80
+}
+
+# gedis speaks the Redis protocol on port 6380, not HTTP; this page says how
+# to connect.
+gedis.{$DOMAIN} {
+	import common
+	root * /srv/home/gedis
+	file_server
+}
