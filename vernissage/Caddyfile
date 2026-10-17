@@ -1,0 +1,19 @@
+# HTTPS for Vernissage's API at $API_DOMAIN. Requests arrive through Vercel
+# (which already set X-Forwarded-For) or, for the live rooms' WebSocket,
+# straight from the browser. Caddy normally replaces an X-Forwarded-For it
+# does not trust, which would make every visitor look like a Vercel edge
+# server; trusting it makes Caddy append instead, and the server, told there
+# are two hops, picks the visitor's address out of the chain. A client that
+# calls the API directly can therefore choose the address it is rate-limited
+# under, the same as behind any appending proxy.
+{
+	servers {
+		trusted_proxies static 0.0.0.0/0 ::/0
+	}
+}
+
+{$API_DOMAIN} {
+	encode zstd gzip
+	header -Server
+	reverse_proxy server:8790
+}

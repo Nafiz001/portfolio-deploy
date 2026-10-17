@@ -24,9 +24,15 @@ push to main ──► GitHub Actions ──► ghcr.io/nafiz001/<project> ─�
   latest images, restarts only what changed. A systemd timer runs it every
   10 minutes, so a push to any project is live a few minutes after its image
   is built.
+- **[`vernissage/`](vernissage)**: the second micro server, for
+  [Vernissage](https://github.com/Nafiz001/vernissage): its Go server and
+  PostgreSQL behind Caddy at `api.<ip>.sslip.io`. The Next.js site runs on
+  Vercel and forwards the API, pictures and posters here; only the live
+  rooms' WebSocket connects directly, with a short-lived signed ticket.
 - **[`server/install.sh`](server/install.sh)**: one-time setup on a fresh
-  Ubuntu server with Docker: clones this repository, writes `server/.env`
-  (the domain and a random secret), installs the timer and starts everything.
+  Ubuntu server with Docker: clones this repository, writes the stack's
+  `.env` with its `init-env.sh` (domains and random secrets), installs the
+  timer and starts everything. `STACK=vernissage` sets up the second server.
 - **[`oracle/retry_a1.py`](oracle/retry_a1.py)**: free Ampere capacity in a
   busy region is often exhausted. This calls LaunchInstance every three minutes,
   alternating the full and half free size, backs off when rate-limited, and stops on any
@@ -42,8 +48,10 @@ push to main ──► GitHub Actions ──► ghcr.io/nafiz001/<project> ─�
 | [lumen](https://github.com/Nafiz001/lumen) | a search engine from scratch | Go standard library |
 | [gedis](https://github.com/Nafiz001/gedis) | a Redis-compatible store from scratch | Go |
 
-The micro server has 1 GB of memory, so the heavier projects (Vernissage,
-noctiluca, kori, quill) wait for the Ampere server.
+| [vernissage](https://github.com/Nafiz001/vernissage) | curate and walk through a museum, together | Go, PostgreSQL, Next.js on Vercel |
+
+Each micro server has 1 GB of memory, so Vernissage has one of its own and
+the other heavy projects (noctiluca, kori, quill) wait for the Ampere server.
 
 ## Choices worth explaining
 
@@ -57,6 +65,11 @@ noctiluca, kori, quill) wait for the Ampere server.
   `--disable-commands` flag switching off CONFIG, DEBUG, REPLICAOF, SHUTDOWN,
   SAVE and the replication handshake, so nobody can make it write files or
   connect elsewhere.
+- **Vernissage trusts forwarded addresses.** Its API sits behind Vercel and
+  Caddy, so Caddy is told to append to `X-Forwarded-For` rather than replace
+  it, and the server counts two hops back to find the visitor. Anyone
+  calling the API directly could pick the address they are rate-limited
+  under, as with any appending proxy; the price of keeping visitors apart.
 - **Proxied apps trust the proxy.** Apps that rate-limit by visitor IP read
   `X-Forwarded-For`, which is only safe because their ports are never
   published; Caddy is the only way in.

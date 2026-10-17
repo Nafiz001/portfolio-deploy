@@ -1,0 +1,87 @@
+# Vernissage's Go server and its PostgreSQL, on the second Oracle micro
+# server. The Next.js site runs on Vercel and forwards /api, /img, /dzi and
+# /poster here; only the live rooms' WebSocket connects here directly, with
+# a short-lived signed ticket.
+#
+# Sized for 1 GB of memory with 2 GB of swap: a small Postgres, two picture
+# workers and a 16-megapixel decode budget per picture.
+
+name: vernissage
+
+x-defaults: &defaults
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options: { max-size: 10m, max-file: "3" }
+
+services:
+  db:
+    <<: *defaults
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: vernissage
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: vernissage
+    command:
+      - postgres
+      - -c
+      - shared_buffers=64MB
+      - -c
+      - effective_cache_size=256MB
+      - -c
+      - work_mem=4MB
+      - -c
+      - maintenance_work_mem=64MB
+      - -c
+      - max_connections=30
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "vernissage"]
+      interval: 2s
+      retries: 30
+    mem_limit: 256m
+
+  server:
+    <<: *defaults
+    image: ghcr.io/nafiz001/vernissage-server:latest
+    environment:
+      DATABASE_URL: postgres://vernissage:${POSTGRES_PASSWORD}@db:5432/vernissage?sslmode=disable
+      VERNISSAGE_ADDR: 0.0.0.0:8790
+      VERNISSAGE_CACHE: /data/cache
+      VERNISSAGE_CACHE_MB: "8192"
+      # The site's exact address; sign-ins, saves and live rooms from any
+      # other origin are refused.
+      VERNISSAGE_ORIGINS: ${SITE_URL:?set SITE_URL in .env}
+      VERNISSAGE_SECURE_COOKIES: "true"
+      VERNISSAGE_SECRET: ${VERNISSAGE_SECRET:?set VERNISSAGE_SECRET in .env}
+      # Vercel and Caddy each add a hop to X-Forwarded-For.
+      VERNISSAGE_PROXY_HOPS: "2"
+      VERNISSAGE_WORKERS: "2"
+      VERNISSAGE_PIXEL_BUDGET_MP: "16"
+    volumes:
+      - cache:/data
+    depends_on:
+      db:
+        condition: service_healthy
+    mem_limit: 384m
+
+  caddy:
+    <<: *defaults
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      API_DOMAIN: ${API_DOMAIN:?set API_DOMAIN in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    mem_limit: 96m
+
+volumes:
+  pgdata:
+  cache:
+  caddy-data:
+  caddy-config:
