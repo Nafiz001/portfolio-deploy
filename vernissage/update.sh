@@ -6,9 +6,15 @@
 set -eu
 cd "$(dirname "$0")"
 
+# One run at a time. Enabling the timer on a server that booted long ago
+# fires it at once, alongside install.sh's own run; without the lock the two
+# raced on git pull and on creating the same containers.
+exec 9>/tmp/portfolio-update.lock
+flock 9
+
 git -C .. pull --quiet --ff-only
 docker compose pull --quiet
 docker compose up --detach --remove-orphans --quiet-pull
 # Caddy only rereads its config when told to.
-docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null 2>&1 || true
+docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile </dev/null >/dev/null 2>&1 || true
 docker image prune --force >/dev/null
