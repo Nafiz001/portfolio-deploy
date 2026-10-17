@@ -2,3 +2,5 @@
 server/.env
 # the A1 retry script's log, on the Windows PC that runs it
 oracle/retry-a1.log
+# Python bytecode
+__pycache__/
