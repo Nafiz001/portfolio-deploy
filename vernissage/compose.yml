@@ -1,5 +1,5 @@
-# Vernissage's Go server and its PostgreSQL, on the second Oracle micro
-# server. The Next.js site runs on Vercel and forwards /api, /img, /dzi and
+# Vernissage's Go server and its PostgreSQL, and noctiluca's Django
+# backend, on the Ampere server (2 OCPU, 12 GB). The Next.js site runs on Vercel and forwards /api, /img, /dzi and
 # /poster here; only the live rooms' WebSocket connects here directly, with
 # a short-lived signed ticket.
 #
@@ -66,6 +66,22 @@ services:
         condition: service_healthy
     mem_limit: 384m
 
+  # noctiluca: Django + Channels under daphne, the sea in one SQLite file.
+  # The Next.js site on Vercel forwards /api here; the live sea's WebSocket
+  # connects here directly. Channels only accepts a socket whose Origin host
+  # is in ALLOWED_HOSTS, so the site's host goes in there as well.
+  noctiluca:
+    <<: *defaults
+    image: ghcr.io/nafiz001/noctiluca-api:latest
+    environment:
+      NOCTILUCA_SECRET_KEY: ${NOCTILUCA_SECRET_KEY:?set NOCTILUCA_SECRET_KEY in .env}
+      NOCTILUCA_ALLOWED_HOSTS: ${NOCTILUCA_DOMAIN},${NOCTILUCA_SITE_HOST}
+      # Vercel and Caddy each add a hop to X-Forwarded-For.
+      NOCTILUCA_NUM_PROXIES: "2"
+    volumes:
+      - noctiluca-data:/data
+    mem_limit: 256m
+
   caddy:
     <<: *defaults
     image: caddy:2-alpine
@@ -74,6 +90,7 @@ services:
       - "443:443"
     environment:
       API_DOMAIN: ${API_DOMAIN:?set API_DOMAIN in .env}
+      NOCTILUCA_DOMAIN: ${NOCTILUCA_DOMAIN:?set NOCTILUCA_DOMAIN in .env}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
@@ -82,6 +99,7 @@ services:
 
 volumes:
   pgdata:
+  noctiluca-data:
   cache:
   caddy-data:
   caddy-config:

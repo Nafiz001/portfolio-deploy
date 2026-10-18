@@ -17,3 +17,11 @@
 	header -Server
 	reverse_proxy server:8790
 }
+
+# noctiluca's backend. The same two hops as above: the Vercel site's rewrite
+# and Caddy; the live sea's WebSocket comes straight from the browser.
+{$NOCTILUCA_DOMAIN} {
+	encode zstd gzip
+	header -Server
+	reverse_proxy noctiluca:8000
+}
