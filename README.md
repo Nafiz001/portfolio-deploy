@@ -24,7 +24,7 @@ push to main ──► GitHub Actions ──► ghcr.io/nafiz001/<project> ─�
   latest images, restarts only what changed. A systemd timer runs it every
   10 minutes, so a push to any project is live a few minutes after its image
   is built.
-- **[`vernissage/`](vernissage)**: the second micro server, for
+- **[`vernissage/`](vernissage)**: the Ampere server (2 OCPU, 12 GB), for
   [Vernissage](https://github.com/Nafiz001/vernissage): its Go server and
   PostgreSQL behind Caddy at `api.<ip>.sslip.io`. The Next.js site runs on
   Vercel and forwards the API, pictures and posters here; only the live
@@ -50,8 +50,10 @@ push to main ──► GitHub Actions ──► ghcr.io/nafiz001/<project> ─�
 
 | [vernissage](https://github.com/Nafiz001/vernissage) | curate and walk through a museum, together | Go, PostgreSQL, Next.js on Vercel |
 
-Each micro server has 1 GB of memory, so Vernissage has one of its own and
-the other heavy projects (noctiluca, kori, quill) wait for the Ampere server.
+Each micro server has 1 GB of memory. Vernissage started on the second micro
+and moved to the Ampere server once Oracle had capacity (a `pg_dump` piped
+into the new database, then the site's two environment variables pointed at
+the new API); the heavy projects (noctiluca, kori, quill) can follow it.
 
 ## Choices worth explaining
 
