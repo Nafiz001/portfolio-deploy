@@ -1,5 +1,6 @@
-# Vernissage's Go server and its PostgreSQL, and noctiluca's Django
-# backend, on the Ampere server (2 OCPU, 12 GB). The Next.js site runs on Vercel and forwards /api, /img, /dzi and
+# The Ampere server (2 OCPU, 12 GB): Vernissage's Go server and its
+# PostgreSQL, noctiluca's Django backend, kori's ledger API with its own
+# PostgreSQL and Redis, and a read-only quill; Caddy in front of all of them. The Next.js site runs on Vercel and forwards /api, /img, /dzi and
 # /poster here; only the live rooms' WebSocket connects here directly, with
 # a short-lived signed ticket.
 #
@@ -82,6 +83,63 @@ services:
       - noctiluca-data:/data
     mem_limit: 256m
 
+  # kori: the ledger API. Only the demo page's key is ever used against it;
+  # Caddy adds that key to /v1 requests (see the Caddyfile), and the key's
+  # scopes decide what a visitor can do. One database and one Redis of its
+  # own, so a heavy ledger test cannot touch Vernissage's.
+  kori-db:
+    <<: *defaults
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: kori
+      POSTGRES_PASSWORD: ${KORI_DB_PASSWORD:?set KORI_DB_PASSWORD in .env}
+      POSTGRES_DB: kori
+    command: ["postgres", "-c", "shared_buffers=64MB", "-c", "max_connections=30"]
+    volumes:
+      - kori-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kori -d kori"]
+      interval: 2s
+      retries: 30
+    mem_limit: 192m
+
+  kori-redis:
+    <<: *defaults
+    image: redis:7-alpine
+    command: ["redis-server", "--maxmemory", "24mb", "--maxmemory-policy", "allkeys-lru", "--save", ""]
+    mem_limit: 48m
+
+  kori:
+    <<: *defaults
+    image: ghcr.io/nafiz001/kori:latest
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: "3000"
+      DATABASE_URL: postgres://kori:${KORI_DB_PASSWORD}@kori-db:5432/kori
+      REDIS_URL: redis://kori-redis:6379
+      JWT_SECRET: ${KORI_JWT_SECRET:?set KORI_JWT_SECRET in .env}
+      # One shared key serves every visitor, so the limit is shared too.
+      RATE_LIMIT_PER_MINUTE: "600"
+      LOG_LEVEL: info
+    depends_on:
+      kori-db:
+        condition: service_healthy
+    mem_limit: 256m
+
+  # quill: a public, read-only copy of the sample shop database, over the
+  # PostgreSQL wire protocol on port 15433. Statements are capped at 3 s and
+  # 1,000 rows by the image's own flags; the limits here bound what a
+  # runaway one can take from the server.
+  quill:
+    <<: *defaults
+    image: ghcr.io/nafiz001/quill:latest
+    ports:
+      - "15433:15433"
+    cpus: 0.5
+    mem_limit: 192m
+    pids_limit: 128
+
   caddy:
     <<: *defaults
     image: caddy:2-alpine
@@ -91,8 +149,12 @@ services:
     environment:
       API_DOMAIN: ${API_DOMAIN:?set API_DOMAIN in .env}
       NOCTILUCA_DOMAIN: ${NOCTILUCA_DOMAIN:?set NOCTILUCA_DOMAIN in .env}
+      KORI_DOMAIN: ${KORI_DOMAIN:?set KORI_DOMAIN in .env}
+      KORI_DEMO_KEY: ${KORI_DEMO_KEY:-}
+      QUILL_DOMAIN: ${QUILL_DOMAIN:?set QUILL_DOMAIN in .env}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./home:/srv/home:ro
       - caddy-data:/data
       - caddy-config:/config
     mem_limit: 96m
@@ -100,6 +162,7 @@ services:
 volumes:
   pgdata:
   noctiluca-data:
+  kori-pgdata:
   cache:
   caddy-data:
   caddy-config:

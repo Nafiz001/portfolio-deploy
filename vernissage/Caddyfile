@@ -25,3 +25,31 @@
 	header -Server
 	reverse_proxy noctiluca:8000
 }
+
+# kori's demo page, and its API with the demo key attached. A visitor's own
+# Authorization header is replaced, so the only credential in play is a key
+# whose scopes allow reading accounts, reading and posting transfers, and
+# verifying the ledger: no new accounts, no admin. Everything else on the
+# API (metrics, health) is not reachable from here.
+{$KORI_DOMAIN} {
+	encode zstd gzip
+	header -Server
+	handle /v1/* {
+		reverse_proxy kori:3000 {
+			header_up Authorization "ApiKey {$KORI_DEMO_KEY}"
+		}
+	}
+	handle {
+		root * /srv/home/kori
+		file_server
+	}
+}
+
+# quill speaks the PostgreSQL protocol on port 15433, not HTTP; this page
+# says how to connect.
+{$QUILL_DOMAIN} {
+	encode zstd gzip
+	header -Server
+	root * /srv/home/quill
+	file_server
+}

@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>kori, a double-entry ledger</title>
+<meta name="description" content="A live sandbox for kori, a double-entry ledger and payments API: move money, send a request twice, overspend, and verify the books.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%277%27 fill=%27%230d1512%27/%3E%3Cellipse cx=%2716%27 cy=%2716%27 rx=%277%27 ry=%2710%27 fill=%27none%27 stroke=%27%23e9e4d6%27 stroke-width=%272%27/%3E%3Cpath d=%27M16 8v16%27 stroke=%27%23e9e4d6%27 stroke-width=%272%27 stroke-linecap=%27round%27/%3E%3C/svg%3E">
+<style>
+  :root {
+    --ink: #0d1512; --panel: #131d19; --line: #263630; --text: #e9e4d6; --soft: #97a39b;
+    --river: #38b59a; --debit: #e8734a; --ok: #7ed6a5;
+    --num: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Nirmala UI", serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ink); color: var(--text); font: 16px/1.55 system-ui, -apple-system, "Segoe UI", "Nirmala UI", sans-serif; }
+  main { max-width: 68rem; margin: 0 auto; padding: 3rem 1.25rem 4rem; }
+  header { display: flex; align-items: baseline; gap: 1rem; flex-wrap: wrap; }
+  h1 { font: 400 4rem/1 var(--serif); margin: 0; letter-spacing: -.02em; }
+  h1 span { color: var(--river); font-size: 2rem; margin-left: .6rem; }
+  .lede { max-width: 40rem; color: var(--soft); margin: .75rem 0 2.5rem; }
+  h2 { font: 400 1.35rem/1.2 var(--serif); margin: 0 0 .9rem; }
+  .grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 2rem; align-items: start; }
+  @media (max-width: 52rem) { .grid { grid-template-columns: 1fr; } }
+  section { margin-bottom: 2.25rem; }
+  table { width: 100%; border-collapse: collapse; font-size: .95rem; }
+  th { text-align: left; font-weight: 500; color: var(--soft); font-size: .8rem; padding: 0 .6rem .5rem; border-bottom: 1px solid var(--line); }
+  td { padding: .55rem .6rem; border-bottom: 1px solid var(--line); }
+  td.n, th.n { text-align: right; font-family: var(--num); font-variant-numeric: tabular-nums; }
+  tr.acct { cursor: pointer; }
+  tr.acct:hover td, tr.acct.sel td { background: var(--panel); }
+  tr.acct:focus-visible { outline: 2px solid var(--river); outline-offset: -2px; }
+  .handle { font-family: var(--num); font-size: .82rem; color: var(--soft); }
+  .neg { color: var(--debit); }
+  tfoot td { border-bottom: 0; border-top: 2px solid var(--text); font-weight: 600; }
+  .flash { animation: flash 1.2s ease-out; }
+  @keyframes flash { from { background: rgba(56,181,154,.35); } to { background: transparent; } }
+  @media (prefers-reduced-motion: reduce) { .flash { animation: none; } }
+  form { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; }
+  label { display: grid; gap: .25rem; font-size: .8rem; color: var(--soft); }
+  select, input[type=text] { font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: .55rem .6rem; }
+  select:focus-visible, input:focus-visible, button:focus-visible { outline: 2px solid var(--river); outline-offset: 2px; }
+  .wide { grid-column: 1 / -1; }
+  label.check { display: flex; align-items: center; gap: .5rem; color: var(--text); font-size: .9rem; }
+  button { font: inherit; cursor: pointer; border-radius: 6px; border: 1px solid var(--river); background: var(--river); color: #06231c; padding: .6rem 1rem; font-weight: 600; }
+  button.ghost { background: transparent; color: var(--text); border-color: var(--line); font-weight: 500; }
+  button.ghost:hover { border-color: var(--river); }
+  button:disabled { opacity: .5; cursor: progress; }
+  .row { display: flex; gap: .6rem; flex-wrap: wrap; }
+  .out { margin-top: 1rem; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: .9rem 1rem; font-size: .9rem; min-height: 3rem; }
+  .out:empty::before { content: "Results appear here."; color: var(--soft); }
+  .out h3 { margin: 0 0 .4rem; font: 600 .9rem system-ui, sans-serif; }
+  .out pre { margin: .4rem 0 0; font: .82rem/1.5 var(--num); white-space: pre-wrap; word-break: break-word; color: var(--soft); }
+  .line { display: flex; justify-content: space-between; gap: 1rem; font-family: var(--num); font-size: .85rem; padding: .15rem 0; }
+  .line b { font-weight: 500; }
+  .ok { color: var(--ok); } .bad { color: var(--debit); }
+  .note { color: var(--soft); font-size: .85rem; max-width: 40rem; }
+  footer { margin-top: 3rem; padding-top: 1.25rem; border-top: 1px solid var(--line); color: var(--soft); font-size: .88rem; }
+  a { color: var(--river); text-underline-offset: 3px; }
+</style>
+</head>
+<body>
+<main>
+  <header><h1>kori<span lang="bn">কড়ি</span></h1></header>
+  <p class="lede">A double-entry ledger and payments API. Money here is never created or destroyed, only moved, so every account added together is always zero. This is a live sandbox: the books below are real, and every button calls the API.</p>
+
+  <div class="grid">
+    <div>
+      <section aria-labelledby="books">
+        <h2 id="books">The books</h2>
+        <table>
+          <thead><tr><th scope="col">Account</th><th scope="col" class="n">Balance (BDT)</th></tr></thead>
+          <tbody id="accounts"></tbody>
+          <tfoot><tr><td>Sum of all accounts</td><td class="n" id="sum">…</td></tr></tfoot>
+        </table>
+        <p class="note">The bank is negative because that is where the money came from. Select an account to read its statement.</p>
+      </section>
+      <section aria-labelledby="stmt-h">
+        <h2 id="stmt-h">Statement</h2>
+        <div class="out" id="statement" aria-live="polite"></div>
+      </section>
+    </div>
+
+    <div>
+      <section aria-labelledby="move">
+        <h2 id="move">Move money</h2>
+        <form id="pay">
+          <label>From<select id="from"></select></label>
+          <label>To<select id="to"></select></label>
+          <label>Amount (BDT)<input id="amount" type="text" inputmode="decimal" value="150.00" autocomplete="off"></label>
+          <label class="check wide"><input id="fee" type="checkbox" checked> When paying a merchant, the platform keeps 2.5% as a fee in the same transfer</label>
+          <div class="wide row"><button type="submit" id="send">Send</button></div>
+        </form>
+        <div class="out" id="result" aria-live="polite"></div>
+      </section>
+
+      <section aria-labelledby="break">
+        <h2 id="break">Try to break it</h2>
+        <div class="row">
+          <button class="ghost" id="twice">Send the same request twice</button>
+          <button class="ghost" id="overspend">Spend more than you have</button>
+          <button class="ghost" id="verify">Verify the ledger</button>
+        </div>
+        <div class="out" id="trial" aria-live="polite"></div>
+      </section>
+    </div>
+  </div>
+
+  <footer>
+    This is a shared sandbox, so other visitors move money here too. It holds made-up balances only, and there is no way to add accounts or withdraw anything.
+    <a href="https://github.com/Nafiz001/kori">Read the code on GitHub</a>.
+  </footer>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+let accounts = [];
+let selected = null;
+
+const cents = (a) => BigInt(a.balance.minor);
+const fmt = (minor) => {
+  const neg = minor < 0n, abs = neg ? -minor : minor;
+  const s = (abs / 100n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") + "." + (abs % 100n).toString().padStart(2, "0");
+  return (neg ? "−" : "") + s;
+};
+const toMinor = (text) => {
+  const m = /^(\d+)(?:\.(\d{1,2}))?$/.exec(text.trim());
+  return m ? BigInt(m[1]) * 100n + BigInt((m[2] || "").padEnd(2, "0") || "0") : null;
+};
+const plain = (minor) => `${minor / 100n}.${(minor % 100n).toString().padStart(2, "0")}`;
+const signed = (minor) => (minor > 0n ? "+" : "") + fmt(minor);
+
+async function api(path, options = {}) {
+  const res = await fetch(path, options);
+  let body = null;
+  try { body = await res.json(); } catch {}
+  return { status: res.status, body, replay: res.headers.get("idempotent-replay") === "true" };
+}
+function post(path, payload, key) {
+  return api(path, { method: "POST", headers: { "content-type": "application/json", "idempotency-key": key }, body: JSON.stringify(payload) });
+}
+const uuid = () => crypto.randomUUID();
+
+function el(tag, props = {}, ...kids) {
+  const e = Object.assign(document.createElement(tag), props);
+  for (const k of kids) e.append(k);
+  return e;
+}
+function show(box, title, ...kids) { box.replaceChildren(el("h3", { textContent: title }), ...kids); }
+function errorText(r) { return r.body && r.body.error ? `${r.body.error.code}: ${r.body.error.message}` : `HTTP ${r.status}`; }
+
+async function loadAccounts(changed = []) {
+  const r = await api("/v1/accounts?limit=100");
+  if (r.status !== 200) {
+    $("accounts").replaceChildren(el("tr", {}, el("td", { colSpan: 2, textContent: "The API did not answer: " + errorText(r) })));
+    return;
+  }
+  accounts = r.body.accounts;
+  const order = (a) => (a.handle.startsWith("bank") ? 0 : a.handle.startsWith("user") ? 1 : a.handle.startsWith("merchant") ? 2 : 3);
+  accounts.sort((a, b) => order(a) - order(b) || a.handle.localeCompare(b.handle));
+  let total = 0n;
+  const rows = accounts.map((a) => {
+    total += cents(a);
+    const tr = el("tr", { className: "acct" + (a.handle === selected ? " sel" : ""), tabIndex: 0 });
+    tr.append(el("td", {}, a.name, el("div", { className: "handle", textContent: a.handle })));
+    const bal = el("td", { className: "n" + (cents(a) < 0n ? " neg" : ""), textContent: fmt(cents(a)) });
+    if (changed.includes(a.handle)) bal.classList.add("flash");
+    tr.append(bal);
+    const open = () => {
+      selected = a.handle;
+      loadStatement(a);
+      document.querySelectorAll("tr.acct").forEach((x) => x.classList.toggle("sel", x === tr));
+    };
+    tr.addEventListener("click", open);
+    tr.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); } });
+    return tr;
+  });
+  $("accounts").replaceChildren(...rows);
+  const sum = $("sum");
+  sum.textContent = fmt(total);
+  sum.className = "n " + (total === 0n ? "ok" : "bad");
+
+  const people = accounts.filter((a) => a.handle.startsWith("user") || a.handle.startsWith("merchant"));
+  for (const id of ["from", "to"]) {
+    const keep = $(id).value;
+    $(id).replaceChildren(...people.map((a) => el("option", { value: a.handle, textContent: a.name })));
+    if (keep && people.some((a) => a.handle === keep)) $(id).value = keep;
+  }
+  if (!$("from").dataset.set) {
+    $("from").value = "user:alice/wallet";
+    $("to").value = "merchant:books/wallet";
+    $("from").dataset.set = "1";
+  }
+}
+
+async function loadStatement(a) {
+  const r = await api(`/v1/accounts/${encodeURIComponent(a.handle)}/entries?limit=8`);
+  if (r.status !== 200) return show($("statement"), a.name, el("pre", { textContent: errorText(r) }));
+  const list = r.body.entries.length
+    ? r.body.entries.map((e) => el("div", { className: "line" },
+        el("span", { className: BigInt(e.amount.minor) < 0n ? "neg" : "", textContent: signed(BigInt(e.amount.minor)) }),
+        el("span", { textContent: "balance " + fmt(BigInt(e.balanceAfter.minor)) })))
+    : [el("span", { textContent: "No entries yet." })];
+  show($("statement"), `${a.name}: latest entries, newest first`, ...list);
+}
+
+function journal(transfer) {
+  return transfer.lines.map((l) => el("div", { className: "line" },
+    el("span", { textContent: l.account }),
+    el("b", { className: BigInt(l.amount.minor) < 0n ? "neg" : "", textContent: signed(BigInt(l.amount.minor)) })));
+}
+
+function buildTransfer(from, to, minor, withFee, tag) {
+  let lines;
+  if (withFee && to.startsWith("merchant")) {
+    const fee = (minor * 25n) / 1000n;
+    lines = [
+      { account: from, amount: "-" + plain(minor) },
+      { account: to, amount: plain(minor - fee) },
+      { account: "platform:fees", amount: plain(fee) },
+    ];
+  } else {
+    lines = [{ account: from, amount: "-" + plain(minor) }, { account: to, amount: plain(minor) }];
+  }
+  return { currency: "BDT", kind: "transfer", reference: `web-${tag}`, description: "Sent from the demo page", lines };
+}
+
+$("pay").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const from = $("from").value, to = $("to").value, minor = toMinor($("amount").value);
+  if (from === to) return show($("result"), "Pick two different accounts");
+  if (!minor || minor <= 0n) return show($("result"), "Enter an amount such as 150.00");
+  $("send").disabled = true;
+  const key = uuid();
+  const r = await post("/v1/transfers", buildTransfer(from, to, minor, $("fee").checked, key.slice(0, 8)), key);
+  $("send").disabled = false;
+  if (r.status === 201) {
+    show($("result"), "Done. One transfer, written as one transaction:", ...journal(r.body),
+      el("pre", { textContent: `id ${r.body.id}\nIdempotency-Key ${key}` }));
+    loadAccounts(r.body.lines.map((l) => l.account));
+  } else {
+    show($("result"), "Refused", el("div", { className: "bad", textContent: errorText(r) }));
+  }
+});
+
+$("twice").addEventListener("click", async () => {
+  const btn = $("twice");
+  btn.disabled = true;
+  const key = uuid(), payload = buildTransfer("user:bimal/wallet", "merchant:tea/wallet", 5000n, true, key.slice(0, 8));
+  const a = await post("/v1/transfers", payload, key);
+  const b = await post("/v1/transfers", payload, key);
+  btn.disabled = false;
+  if (a.status !== 201 || b.status !== 201) {
+    return show($("trial"), "That did not go through", el("div", { className: "bad", textContent: errorText(a.status !== 201 ? a : b) }));
+  }
+  show($("trial"), "Sent twice with the same Idempotency-Key, paid once",
+    el("div", { className: "line" }, el("span", { textContent: "First request" }), el("b", { textContent: "201, new transfer " + a.body.id.slice(0, 8) })),
+    el("div", { className: "line" }, el("span", { textContent: "Second request" }),
+      el("b", { className: a.body.id === b.body.id && b.replay ? "ok" : "bad", textContent: `201, ${b.replay ? "replayed" : "NOT replayed"}, transfer ${b.body.id.slice(0, 8)}` })),
+    el("pre", { textContent: "A client that times out cannot know whether its request applied, so it retries. The key makes the retry safe: Bimal paid 50.00 once." }));
+  loadAccounts(a.body.lines.map((l) => l.account));
+});
+
+$("overspend").addEventListener("click", async () => {
+  const key = uuid();
+  const r = await post("/v1/transfers", buildTransfer("user:chitra/wallet", "merchant:tea/wallet", 99999999n, false, key.slice(0, 8)), key);
+  show($("trial"), `Chitra tried to send 999,999.99 (HTTP ${r.status})`,
+    el("div", { className: r.status === 422 ? "ok" : "bad", textContent: errorText(r) }),
+    el("pre", { textContent: "A well-formed request that the account cannot afford is a 422, not a 400: the client did nothing wrong, the money just is not there. Nothing moved." }));
+});
+
+$("verify").addEventListener("click", async () => {
+  const t0 = performance.now();
+  const r = await api("/v1/verify");
+  const ms = Math.round(performance.now() - t0);
+  if (r.status !== 200 || !r.body) return show($("trial"), "Verification failed", el("div", { className: "bad", textContent: errorText(r) }));
+  show($("trial"), r.body.ok ? "The books are consistent" : "Drift found",
+    el("div", { className: "line" }, el("span", { textContent: "Accounts re-derived" }), el("b", { textContent: String(r.body.accountsChecked) })),
+    el("div", { className: "line" }, el("span", { textContent: "Transfers summed" }), el("b", { textContent: String(r.body.transfersChecked) })),
+    el("pre", { textContent: `Every balance was recomputed from the append-only journal (${r.body.durationMs} ms on the server, ${ms} ms round trip). Each cached balance matched, and every transfer and every currency summed to zero.` }));
+});
+
+loadAccounts();
+</script>
+</body>
+</html>

@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Connect to quill</title>
+<meta name="description" content="quill is a relational database written from scratch in Go. It speaks the PostgreSQL wire protocol, so psql connects to this public, read-only instance.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%277%27 fill=%27%23141a2b%27/%3E%3Cpath d=%27M22 6c-7 2-12 8-13 18l3-5c3-1 7-4 10-13z%27 fill=%27%23f2c14e%27/%3E%3C/svg%3E">
+<style>
+  :root {
+    --ink: #11162a; --panel: #181f38; --line: #2a3354; --text: #e8eaf3; --soft: #9aa3c0;
+    --nib: #f2c14e; --blue: #7aa2ff;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+  }
+  @media (prefers-color-scheme: light) {
+    :root { --ink: #f6f6fa; --panel: #ffffff; --line: #d9dbe6; --text: #161a2e; --soft: #555c78; --nib: #8a5a00; --blue: #2a4fc4; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ink); color: var(--text); font: 17px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 46rem; margin: 0 auto; padding: 3.5rem 1.25rem 4rem; }
+  h1 { font: 700 2.4rem/1.1 var(--mono); margin: 0 0 .4rem; letter-spacing: -.03em; }
+  h1 i { color: var(--nib); font-style: normal; }
+  h2 { font-size: 1.1rem; margin: 2.2rem 0 .6rem; }
+  p { margin: .5rem 0; }
+  .soft { color: var(--soft); }
+  pre { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: .9rem 1rem; overflow-x: auto; font: .9rem/1.55 var(--mono); margin: .6rem 0; position: relative; }
+  code { font-family: var(--mono); font-size: .92em; }
+  .copy { position: absolute; top: .45rem; right: .45rem; font: .75rem system-ui, sans-serif; background: transparent; color: var(--soft); border: 1px solid var(--line); border-radius: 5px; padding: .2rem .5rem; cursor: pointer; }
+  .copy:hover { color: var(--text); border-color: var(--blue); }
+  .copy:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+  a { color: var(--blue); text-underline-offset: 3px; }
+  ul { padding-left: 1.2rem; } li { margin: .3rem 0; }
+  footer { margin-top: 3rem; padding-top: 1.2rem; border-top: 1px solid var(--line); color: var(--soft); font-size: .92rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>quill<i>.</i></h1>
+  <p>A relational database written from scratch in Go: a B+tree on slotted pages, a SQL parser and planner, a write-ahead log, and the PostgreSQL wire protocol, so the real <code>psql</code> connects to it.</p>
+
+  <h2>Connect</h2>
+  <p>Any user name works and there is no password.</p>
+  <pre id="connect">psql -h quill.example -p 15433 -U quill</pre>
+
+  <h2>Try these</h2>
+  <p class="soft">The database is a small shop (<code>users</code>, <code>products</code>, <code>orders</code>) and 3,000 sensor <code>readings</code>.</p>
+  <pre>SELECT u.name, COUNT(*) AS orders, SUM(o.total) AS spent
+  FROM users u JOIN orders o ON u.id = o.user_id
+ GROUP BY u.name HAVING SUM(o.total) > 150
+ ORDER BY spent DESC;</pre>
+  <pre>SELECT COUNT(*), AVG(value), MIN(value), MAX(value)
+  FROM readings WHERE sensor = 7;</pre>
+  <p>Ask for the plan. Looking up a primary key walks the B+tree, which is three page reads however big the table gets:</p>
+  <pre>EXPLAIN SELECT * FROM readings WHERE id = 42;</pre>
+  <p>Filtering on any other column reads the whole table. The planner makes one decision, on the primary key, and does not choose secondary indexes yet; the README lists that as the next piece of work.</p>
+  <pre>EXPLAIN SELECT * FROM readings WHERE sensor = 42;</pre>
+
+  <h2>What this instance allows</h2>
+  <ul>
+    <li>Read only: every <code>INSERT</code>, <code>UPDATE</code>, <code>DELETE</code> and <code>CREATE</code> is refused, so everyone sees the same data.</li>
+    <li>A statement that runs longer than 3 seconds is cancelled, and a query returning more than 1,000 rows is refused. Statements run one at a time, so one slow query would otherwise make everyone wait.</li>
+    <li>To change data, run quill yourself: it is one static binary and one file.</li>
+  </ul>
+
+  <footer>
+    <a href="https://github.com/Nafiz001/quill">Read the code on GitHub</a>
+  </footer>
+</main>
+<script>
+  const host = location.hostname;
+  const connect = document.getElementById('connect');
+  connect.textContent = 'psql -h ' + host + ' -p 15433 -U quill';
+  for (const pre of document.querySelectorAll('pre')) {
+    const button = document.createElement('button');
+    button.className = 'copy';
+    button.type = 'button';
+    button.textContent = 'Copy';
+    button.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(pre.firstChild.textContent);
+        button.textContent = 'Copied';
+      } catch {
+        button.textContent = 'Select and copy';
+      }
+      setTimeout(() => (button.textContent = 'Copy'), 1500);
+    });
+    pre.append(button);
+  }
+</script>
+</body>
+</html>
