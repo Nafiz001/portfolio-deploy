@@ -50,6 +50,8 @@ push to main ──► GitHub Actions ──► ghcr.io/nafiz001/<project> ─�
 
 | [vernissage](https://github.com/Nafiz001/vernissage) | curate and walk through a museum, together | Go, PostgreSQL, Next.js on Vercel |
 | [noctiluca](https://github.com/Nafiz001/noctiluca) | a deep-sea dive lit by strangers' messages | Django, Channels, SQLite, Next.js on Vercel |
+| [kori](https://github.com/Nafiz001/kori) | a double-entry ledger and payments API | TypeScript, PostgreSQL, Redis |
+| [quill](https://github.com/Nafiz001/quill) | a SQL database from scratch, read-only demo on :15433 | Go, PostgreSQL wire protocol |
 
 Each micro server has 1 GB of memory. Vernissage started on the second micro
 and moved to the Ampere server once Oracle had capacity (a `pg_dump` piped
