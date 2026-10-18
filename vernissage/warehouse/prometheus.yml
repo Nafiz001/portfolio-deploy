@@ -33,9 +33,5 @@ scrape_configs:
     metrics_path: '/metrics'
     scrape_interval: 5s
 
-  # Nginx metrics (basic)
-  - job_name: 'nginx'
-    static_configs:
-      - targets: ['nginx:80']
-    metrics_path: '/nginx_status'
-    scrape_interval: 10s
+  # The original also scraped nginx's stub_status, which is not in Prometheus's
+  # format, so that target was always down and no dashboard uses it.
