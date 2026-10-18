@@ -1,0 +1,154 @@
+# Logarithm Warehouse (BUET CSE Fest 2026): two services with a database
+# each, a Redis-backed chaos counter, the project's own Nginx load balancer
+# in front, and Prometheus and Grafana watching it. Included by ../compose.yml,
+# so Caddy there reaches `nginx` (the dashboard and API) and `grafana`.
+#
+# The inventory service runs as three replicas, as in the project: the
+# deterministic "every 5th request is slow" counter lives in Redis so it
+# stays global however many replicas answer. Nginx resolves the service
+# name to all three.
+
+x-warehouse: &warehouse
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options: { max-size: 10m, max-file: "3" }
+
+services:
+  order-db:
+    <<: *warehouse
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: orders
+      POSTGRES_USER: orderuser
+      POSTGRES_PASSWORD: ${WAREHOUSE_DB_PASSWORD:?set WAREHOUSE_DB_PASSWORD in .env}
+    command: ["postgres", "-c", "shared_buffers=32MB", "-c", "max_connections=40"]
+    volumes:
+      - order-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U orderuser -d orders"]
+      interval: 5s
+      retries: 10
+    mem_limit: 128m
+
+  inventory-db:
+    <<: *warehouse
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: inventory
+      POSTGRES_USER: inventoryuser
+      POSTGRES_PASSWORD: ${WAREHOUSE_DB_PASSWORD}
+    command: ["postgres", "-c", "shared_buffers=32MB", "-c", "max_connections=60"]
+    volumes:
+      - inventory-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U inventoryuser -d inventory"]
+      interval: 5s
+      retries: 10
+    mem_limit: 128m
+
+  redis:
+    <<: *warehouse
+    image: redis:7-alpine
+    command: ["redis-server", "--maxmemory", "16mb", "--save", ""]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 5
+    mem_limit: 32m
+
+  order-service:
+    <<: *warehouse
+    image: ghcr.io/nafiz001/warehouse-order:latest
+    environment:
+      NODE_ENV: production
+      PORT: "3001"
+      DATABASE_URL: postgres://orderuser:${WAREHOUSE_DB_PASSWORD}@order-db:5432/orders
+      INVENTORY_SERVICE_URL: http://nginx:80/inventory
+      REQUEST_TIMEOUT_MS: "3000"
+    depends_on:
+      order-db:
+        condition: service_healthy
+    mem_limit: 160m
+
+  inventory-service:
+    <<: *warehouse
+    image: ghcr.io/nafiz001/warehouse-inventory:latest
+    deploy:
+      replicas: 3
+    environment:
+      NODE_ENV: production
+      PORT: "3002"
+      DATABASE_URL: postgres://inventoryuser:${WAREHOUSE_DB_PASSWORD}@inventory-db:5432/inventory
+      REDIS_URL: redis://redis:6379
+      GREMLIN_ENABLED: "true"
+      GREMLIN_EVERY_NTH_REQUEST: "5"
+      GREMLIN_DELAY_MS: "5000"
+      CHAOS_ENABLED: "true"
+      CHAOS_CRASH_PROBABILITY: "0.1"
+    depends_on:
+      inventory-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    mem_limit: 160m
+
+  frontend:
+    <<: *warehouse
+    image: ghcr.io/nafiz001/warehouse-dashboard:latest
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+    mem_limit: 96m
+
+  # The project's own load balancer; Caddy sends everything here.
+  nginx:
+    <<: *warehouse
+    image: nginx:alpine
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - order-service
+      - inventory-service
+      - frontend
+    mem_limit: 64m
+
+  prometheus:
+    <<: *warehouse
+    image: prom/prometheus:v3.1.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=7d
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    mem_limit: 256m
+
+  # Anyone can look at the dashboards (a viewer, no sign-in); changing
+  # anything needs the admin password from .env.
+  grafana:
+    <<: *warehouse
+    image: grafana/grafana:11.4.0
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${WAREHOUSE_GRAFANA_PASSWORD:?set WAREHOUSE_GRAFANA_PASSWORD in .env}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_AUTH_DISABLE_LOGIN_FORM: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/warehouse.json
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+    mem_limit: 256m
+
+volumes:
+  order-db-data:
+  inventory-db-data:
+  prometheus-data:
+  grafana-data:

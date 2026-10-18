@@ -9,6 +9,10 @@
 
 name: vernissage
 
+# Logarithm Warehouse is a stack of its own (ten containers), kept in its own file.
+include:
+  - warehouse/compose.yml
+
 x-defaults: &defaults
   restart: unless-stopped
   logging:
@@ -152,6 +156,8 @@ services:
       KORI_DOMAIN: ${KORI_DOMAIN:?set KORI_DOMAIN in .env}
       KORI_DEMO_KEY: ${KORI_DEMO_KEY:-}
       QUILL_DOMAIN: ${QUILL_DOMAIN:?set QUILL_DOMAIN in .env}
+      WAREHOUSE_DOMAIN: ${WAREHOUSE_DOMAIN:?set WAREHOUSE_DOMAIN in .env}
+      GRAFANA_DOMAIN: ${GRAFANA_DOMAIN:?set GRAFANA_DOMAIN in .env}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - ./home:/srv/home:ro
