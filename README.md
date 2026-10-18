@@ -49,6 +49,7 @@ push to main ──► GitHub Actions ──► ghcr.io/nafiz001/<project> ─�
 | [gedis](https://github.com/Nafiz001/gedis) | a Redis-compatible store from scratch | Go |
 
 | [vernissage](https://github.com/Nafiz001/vernissage) | curate and walk through a museum, together | Go, PostgreSQL, Next.js on Vercel |
+| [noctiluca](https://github.com/Nafiz001/noctiluca) | a deep-sea dive lit by strangers' messages | Django, Channels, SQLite, Next.js on Vercel |
 
 Each micro server has 1 GB of memory. Vernissage started on the second micro
 and moved to the Ampere server once Oracle had capacity (a `pg_dump` piped
