@@ -56,9 +56,12 @@ services:
     environment:
       LUMEN_SEED: https://go.dev/blog/
       LUMEN_MAX_PAGES: "400"
+      # Crawl the blog again every week and swap the new index in. A rebuild
+      # holds a second copy of the index while it crawls, hence the headroom.
+      LUMEN_REFRESH: 168h
     volumes:
       - lumen-data:/data
-    mem_limit: 128m
+    mem_limit: 256m
 
   gedis:
     <<: *defaults
