@@ -4,3 +4,6 @@ server/.env
 oracle/retry-a1.log
 # Python bytecode
 __pycache__/
+
+# The Sandglass WebGL build is copied to the server, not kept here.
+vernissage/home/sandglass/
