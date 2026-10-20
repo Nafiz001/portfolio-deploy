@@ -144,6 +144,16 @@ services:
     mem_limit: 192m
     pids_limit: 128
 
+  # Sandglass: the 1v1 shooter's authoritative match server. The WebGL game
+  # on Vercel connects to its WebSocket through Caddy; every match lives in
+  # memory, so there is nothing to keep.
+  sandglass:
+    <<: *defaults
+    image: ghcr.io/nafiz001/sandglass-server:latest
+    cpus: 0.5
+    mem_limit: 96m
+    pids_limit: 64
+
   caddy:
     <<: *defaults
     image: caddy:2-alpine
@@ -158,6 +168,7 @@ services:
       QUILL_DOMAIN: ${QUILL_DOMAIN:?set QUILL_DOMAIN in .env}
       WAREHOUSE_DOMAIN: ${WAREHOUSE_DOMAIN:?set WAREHOUSE_DOMAIN in .env}
       GRAFANA_DOMAIN: ${GRAFANA_DOMAIN:?set GRAFANA_DOMAIN in .env}
+      SANDGLASS_DOMAIN: ${SANDGLASS_DOMAIN:?set SANDGLASS_DOMAIN in .env}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - ./home:/srv/home:ro

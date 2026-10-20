@@ -68,3 +68,10 @@
 	header -Server
 	reverse_proxy grafana:3000
 }
+
+# Sandglass's match server: the game's WebSocket at /ws, plus /stats and
+# /healthz. Caddy upgrades the WebSocket itself; no compression on a socket.
+{$SANDGLASS_DOMAIN} {
+	header -Server
+	reverse_proxy sandglass:7350
+}
