@@ -69,10 +69,9 @@
 	reverse_proxy grafana:3000
 }
 
-# Sandglass: the WebGL game itself (copied to home/sandglass, not kept in
-# git) and its match server's WebSocket at /ws, /stats and /healthz, on one
-# origin. Unity's Brotli files must go out with Content-Encoding: br and
-# their real type; file_server leaves a Content-Type that is already set.
+# Sandglass's match server: the game's WebSocket at /ws, plus /stats and
+# /healthz. The game itself is on GitHub Pages; anything else here sends
+# visitors there.
 {$SANDGLASS_DOMAIN} {
 	header -Server
 	@server path /ws /stats /healthz
@@ -80,18 +79,6 @@
 		reverse_proxy sandglass:7350
 	}
 	handle {
-		root * /srv/home/sandglass
-		@br path *.br
-		header @br Content-Encoding br
-		@js path *.js.br
-		header @js Content-Type application/javascript
-		@wasm path *.wasm.br
-		header @wasm Content-Type application/wasm
-		@data path *.data.br
-		header @data Content-Type application/octet-stream
-		@build path /Build/*
-		header @build Cache-Control "public, max-age=3600"
-		encode zstd gzip
-		file_server
+		redir https://nafiz001.github.io/sandglass/ 302
 	}
 }
