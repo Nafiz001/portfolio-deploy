@@ -154,6 +154,45 @@ services:
     mem_limit: 96m
     pids_limit: 64
 
+  # katar: the Eid-rush ticketing demo (Spring Boot). Its own PostgreSQL 18,
+  # since a rush test hammers the database and must not slow anyone else's.
+  # Demo mode runs an hourly sale with a simulated crowd in front of it.
+  katar-db:
+    <<: *defaults
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: katar
+      POSTGRES_PASSWORD: ${KATAR_DB_PASSWORD:?set KATAR_DB_PASSWORD in .env}
+      POSTGRES_DB: katar
+    command: ["postgres", "-c", "shared_buffers=96MB", "-c", "max_connections=40"]
+    volumes:
+      - katar-pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U katar -d katar"]
+      interval: 2s
+      retries: 30
+    mem_limit: 256m
+
+  katar:
+    <<: *defaults
+    image: ghcr.io/nafiz001/katar:latest
+    environment:
+      KATAR_DB_URL: jdbc:postgresql://katar-db:5432/katar
+      KATAR_DB_USER: katar
+      KATAR_DB_PASSWORD: ${KATAR_DB_PASSWORD}
+      KATAR_DB_POOL: "16"
+      KATAR_PASS_SECRET: ${KATAR_PASS_SECRET:?set KATAR_PASS_SECRET in .env}
+      KATAR_PERSON_PEPPER: ${KATAR_PERSON_PEPPER:?set KATAR_PERSON_PEPPER in .env}
+      KATAR_PAYMENT_SECRET: ${KATAR_PAYMENT_SECRET:?set KATAR_PAYMENT_SECRET in .env}
+      KATAR_TICKET_PRIVATE_KEY: ${KATAR_TICKET_PRIVATE_KEY:?set KATAR_TICKET_PRIVATE_KEY in .env}
+      KATAR_DEMO: "true"
+    command: ["--katar.demo=true"]
+    depends_on:
+      katar-db:
+        condition: service_healthy
+    cpus: 1.0
+    mem_limit: 384m
+
   caddy:
     <<: *defaults
     image: caddy:2-alpine
@@ -169,6 +208,7 @@ services:
       WAREHOUSE_DOMAIN: ${WAREHOUSE_DOMAIN:?set WAREHOUSE_DOMAIN in .env}
       GRAFANA_DOMAIN: ${GRAFANA_DOMAIN:?set GRAFANA_DOMAIN in .env}
       SANDGLASS_DOMAIN: ${SANDGLASS_DOMAIN:?set SANDGLASS_DOMAIN in .env}
+      KATAR_DOMAIN: ${KATAR_DOMAIN:?set KATAR_DOMAIN in .env}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - ./home:/srv/home:ro
@@ -180,6 +220,7 @@ volumes:
   pgdata:
   noctiluca-data:
   kori-pgdata:
+  katar-pgdata:
   cache:
   caddy-data:
   caddy-config:

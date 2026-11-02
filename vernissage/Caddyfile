@@ -82,3 +82,22 @@
 		redir https://nafiz001.github.io/sandglass/ 302
 	}
 }
+
+# katar, the Eid-rush ticketing demo: the booking page and its API. The
+# actuator stays private except health; Prometheus scrapes it inside the
+# Docker network, not through here.
+{$KATAR_DOMAIN} {
+	encode zstd gzip
+	handle /actuator/health {
+		reverse_proxy katar:8080
+	}
+	handle /actuator/* {
+		respond 404
+	}
+	handle {
+		reverse_proxy katar:8080 {
+			# the queue's SSE stream must reach the browser as it is written
+			flush_interval -1
+		}
+	}
+}
