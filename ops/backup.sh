@@ -28,7 +28,7 @@ case $STACK in
   vernissage)
     for db in db kori-db katar-db order-db inventory-db; do dump "$db"; done
     docker compose exec -T noctiluca python -c "import sqlite3; sqlite3.connect('/data/sea.sqlite3').backup(sqlite3.connect('/tmp/backup.sqlite3'))" </dev/null
-    docker compose cp --quiet noctiluca:/tmp/backup.sqlite3 "$DATA/noctiluca.sqlite3"
+    docker compose cp noctiluca:/tmp/backup.sqlite3 "$DATA/noctiluca.sqlite3" >/dev/null 2>&1
     docker compose exec -T noctiluca rm -f /tmp/backup.sqlite3 </dev/null
     ;;
   server)
