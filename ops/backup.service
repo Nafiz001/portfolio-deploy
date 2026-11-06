@@ -1,0 +1,9 @@
+[Unit]
+Description=Back up this stack's data to GitHub, encrypted
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+Nice=10
+ExecStart=/opt/portfolio/ops/backup.sh @STACK@

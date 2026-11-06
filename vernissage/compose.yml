@@ -1,11 +1,13 @@
 # The Ampere server (2 OCPU, 12 GB): Vernissage's Go server and its
 # PostgreSQL, noctiluca's Django backend, kori's ledger API with its own
-# PostgreSQL and Redis, and a read-only quill; Caddy in front of all of them. The Next.js site runs on Vercel and forwards /api, /img, /dzi and
-# /poster here; only the live rooms' WebSocket connects here directly, with
-# a short-lived signed ticket.
+# PostgreSQL and Redis, and a read-only quill; Caddy in front of all of them.
+# The Next.js site runs on Vercel and forwards /api here; pictures, tiles,
+# posters and the live rooms' WebSocket come here directly.
 #
-# Sized for 1 GB of memory with 2 GB of swap: a small Postgres, two picture
-# workers and a 16-megapixel decode budget per picture.
+# Oracle may stop an Always Free A1 whose CPU, network and memory all stay
+# under 20% for a week, and a stopped A1 can fail to start again for lack of
+# capacity. So katar holds a large fixed heap, which keeps memory above that
+# line whatever the traffic does. Keep `free -m` used above 2.6 GB.
 
 name: vernissage
 
@@ -69,7 +71,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    mem_limit: 384m
+    # Cutting a large picture hit 384m and the kernel killed the server.
+    mem_limit: 1g
 
   # noctiluca: Django + Channels under daphne, the sea in one SQLite file.
   # The Next.js site on Vercel forwards /api here; the live sea's WebSocket
@@ -186,12 +189,14 @@ services:
       KATAR_PAYMENT_SECRET: ${KATAR_PAYMENT_SECRET:?set KATAR_PAYMENT_SECRET in .env}
       KATAR_TICKET_PRIVATE_KEY: ${KATAR_TICKET_PRIVATE_KEY:?set KATAR_TICKET_PRIVATE_KEY in .env}
       KATAR_DEMO: "true"
+      # A fixed heap, touched at startup: see the note at the top of this file.
+      JAVA_TOOL_OPTIONS: -Xms1300m -Xmx1300m -XX:+AlwaysPreTouch -XX:+UseSerialGC -XX:+ExitOnOutOfMemoryError
     command: ["--katar.demo=true"]
     depends_on:
       katar-db:
         condition: service_healthy
     cpus: 1.0
-    mem_limit: 384m
+    mem_limit: 1700m
 
   caddy:
     <<: *defaults

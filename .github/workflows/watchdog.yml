@@ -1,0 +1,42 @@
+# Restarts any Oracle server that was stopped. See ops/watchdog.py.
+name: Watchdog
+
+on:
+  schedule:
+    - cron: "7,37 * * * *"
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      OCI_USER: ${{ secrets.OCI_USER }}
+      OCI_TENANCY: ${{ secrets.OCI_TENANCY }}
+      OCI_FINGERPRINT: ${{ secrets.OCI_FINGERPRINT }}
+      OCI_REGION: ${{ secrets.OCI_REGION }}
+      OCI_KEY: ${{ secrets.OCI_KEY }}
+    steps:
+      # GitHub pauses scheduled workflows after 60 days without repository
+      # activity; enabling this one again resets that clock.
+      - name: Stay scheduled
+        run: gh workflow enable watchdog.yml --repo "$GITHUB_REPOSITORY"
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Check the key is set
+        id: key
+        run: |
+          if [ -n "$OCI_KEY" ]; then echo "set=true" >> "$GITHUB_OUTPUT"
+          else echo "::warning::OCI secrets are not set, so nothing is being watched."; fi
+      - uses: actions/checkout@v4
+        if: steps.key.outputs.set == 'true'
+      - uses: actions/setup-python@v5
+        if: steps.key.outputs.set == 'true'
+        with:
+          python-version: "3.12"
+      - if: steps.key.outputs.set == 'true'
+        run: pip install --quiet oci && python ops/watchdog.py

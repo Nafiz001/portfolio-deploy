@@ -58,6 +58,40 @@ and moved to the Ampere server once Oracle had capacity (a `pg_dump` piped
 into the new database, then the site's two environment variables pointed at
 the new API); the heavy projects (noctiluca, kori, quill) can follow it.
 
+## Staying up on Always Free
+
+Oracle may stop an Always Free server whose CPU and network (and, on an A1,
+memory) all stay under 20% for a week. `ops/` holds what keeps them running:
+
+- **The A1** stays above the line on memory: katar holds a fixed 1.3 GB heap
+  (see `vernissage/compose.yml`).
+- **The micro** runs `keep-active.timer`: 8 minutes of low-priority filler each
+  hour, so its 95th-percentile CPU clears 20%.
+- **The watchdog** (`.github/workflows/watchdog.yml`) checks every 30 minutes
+  and starts anything stopped. A run that had to start something fails, so
+  GitHub sends an email. It needs the `OCI_USER`, `OCI_TENANCY`,
+  `OCI_FINGERPRINT`, `OCI_REGION` and `OCI_KEY` repository secrets; without
+  them it only warns.
+- `ops/install.sh <stack>` sets up a server's timers.
+
+## Backups
+
+`portfolio-backup.timer` runs `ops/backup.sh` nightly: every database, the
+SQLite and volume data, and `.env`, encrypted with
+[age](https://age-encryption.org) and pushed to the private
+`Nafiz001/portfolio-backups`, on one branch per server and weekday, so there is
+a week of them. Servers hold only the public key (`ops/backup-recipient.txt`).
+The private key is in `%USERPROFILE%\.ssh\portfolio-backup.age` on the owner's
+PC. Without it the backups can't be read, so keep a second copy somewhere safe.
+
+To restore, on any machine with age:
+
+```console
+$ git clone --branch portfolio-mon git@github.com:Nafiz001/portfolio-backups.git
+$ age -d -i portfolio-backup.age portfolio-backups/vernissage-*.age | tar -xz
+$ docker compose exec -T db psql -U vernissage vernissage < db.sql
+```
+
 ## Choices worth explaining
 
 - **Nothing builds on the server.** A 1 GB machine cannot compile Next.js or

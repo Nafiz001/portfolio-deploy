@@ -1,0 +1,9 @@
+[Unit]
+Description=Run keep-active every hour
+
+[Timer]
+OnCalendar=hourly
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,12 @@
+# Oracle may stop an Always Free micro whose CPU and network stay under 20%
+# (95th percentile) for a week. This is filler work: at the lowest priority it
+# gives way to the sites, and the timer runs it for about 13% of each hour.
+[Unit]
+Description=Keep this micro above Oracle's idle line
+
+[Service]
+Type=oneshot
+Nice=19
+IOSchedulingClass=idle
+ExecStart=/usr/bin/timeout 480 /usr/bin/sha256sum /dev/zero
+SuccessExitStatus=124
